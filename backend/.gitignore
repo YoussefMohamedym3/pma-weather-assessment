@@ -1,0 +1,10 @@
+# Environment variables
+    .env
+    
+    # SQLite Database
+    *.db
+    *.db-journal
+    
+    # Python cache
+    __pycache__/
+    
