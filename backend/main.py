@@ -1,6 +1,9 @@
 """The primary entry point for the FastAPI application."""
 
+import logging
+
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 # --- Project Imports ---
@@ -12,6 +15,9 @@ from .app.db.models import (
 )
 
 # --- Initialization Functions ---
+# Basic configuration to output logs to the console
+logging.basicConfig(level=logging.INFO)
+# Note: You can change level=INFO to level=DEBUG during heavy development
 
 
 def create_db_tables():
@@ -42,6 +48,14 @@ app = FastAPI(
 
 # The weather router contains all our CRUD endpoints
 app.include_router(weather.router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Add your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Basic Health Check ---
 

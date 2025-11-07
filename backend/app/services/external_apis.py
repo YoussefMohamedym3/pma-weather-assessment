@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -5,6 +6,8 @@ import httpx
 from fastapi import HTTPException
 
 from backend.app.core.config import settings
+
+log = logging.getLogger(__name__)
 
 # --- Private Helper Function: Network Caller  ---
 
@@ -16,6 +19,7 @@ async def _fetch_from_weatherapi(
     Generic, private helper function to call the WeatherAPI.com endpoints.
     """
     if not settings.WEATHERAPI_API_KEY:
+        log.critical("Server configuration error: WeatherAPI key is missing.")
         raise HTTPException(
             status_code=500,
             detail="Server configuration error: WeatherAPI key is missing.",
@@ -36,10 +40,11 @@ async def _fetch_from_weatherapi(
 
             # 1006 is "No location found matching parameter 'q'"
             if status_code == 1006:
+                log.warning(f"Location not found (Code 1006) for query: {params['q']}")
                 raise HTTPException(
                     status_code=404, detail=f"Location not found: {error_msg}"
                 )
-
+            log.error(f"Weather API Error (Code {status_code}): {error_msg}")
             raise HTTPException(
                 status_code=400, detail=f"Weather API Error: {error_msg}"
             )
@@ -48,9 +53,14 @@ async def _fetch_from_weatherapi(
 
     except httpx.HTTPStatusError as e:
         detail_msg = f"External weather service error: {e.response.reason_phrase} - {e.response.text}"
+        log.error(
+            f"HTTPError for endpoint: {base_url} with params: {params}. Detail: {detail_msg}",
+            exc_info=True,  # Includes stack trace in the log
+        )
         raise HTTPException(status_code=e.response.status_code, detail=detail_msg)
 
     except httpx.RequestException as e:
+        log.error(f"Network Request Failed for {base_url}. Error: {e}", exc_info=True)
         raise HTTPException(
             status_code=503, detail=f"Failed to connect to weather service: {e}"
         )
