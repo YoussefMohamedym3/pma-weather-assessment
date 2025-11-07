@@ -20,8 +20,15 @@ This section tracks completed tasks for **Milestone 1: The Backend** (Tech Asses
 ### **Task Group 2: Data Contracts (`feat/data-models`)**
 
 * **[COMPLETED] Data Contracts:** Defined the complete data layer, including the **SQLAlchemy Model** (`WeatherSearch`) and all necessary **Pydantic Schemas**.
-    * **Architecture Detail:** The model is designed to handle the **CREATE with Date Range** requirement by storing `search_date_from` and `search_date_to`, and includes a `raw_forecast_data: JSON` column to fulfill the "store all information" mandate.
-    * **Future-Proofing:** Includes fields (`Maps_url`, `youtube_video_ids`) to support the **Milestone 3 API Integration** requirements, demonstrating a planned architecture.
+    * **Architecture Detail:** The model is designed to handle the **CREATE with Date Range** requirement and includes fields for **Milestone 3 API Integration** (YouTube, Google Maps).
+
+### **Task Group 3: Business Logic & Validation (`feat/service-external-api` / `feat/service-weather-crud`)**
+
+* **[COMPLETED] External API Integration:** Implemented robust logic in `external_apis.py` to securely call the WeatherAPI, handle all HTTP/API errors, and **dynamically retrieve data** by correctly looping through the `history.json` endpoint for historical date ranges.
+* **[COMPLETED] Core Service Logic:** Implemented **all mandatory CRUD functions** (`create_weather_search`, `get_all_searches`, `update_weather_search`, `delete_weather_search`) in the Service Layer.
+    * **Advanced Validation:** Implemented strict date range checks and explicit **location validation (fuzzy match)** using the `/search.json` endpoint before fetching data.
+    * **Complex Update Logic:** The `UPDATE` function is fully compliant, triggering a **full data refresh and re-validation** if a user attempts to modify the location or date range.
+* **[COMPLETED] Architectural Refinement:** Refactored the Service Layer into dedicated sub-modules (`weather_crud.py`, `weather_extraction.py`) to keep the main `weather_service.py` file thin and focused on orchestration, maintaining the highest standards of maintainability.
 
 ---
 
@@ -64,4 +71,5 @@ To prepare the backend for development, follow these steps:
 
 ## ⏭️ Next Steps
 
-The next task, **`feat/service-external-api`**, will focus on implementing the logic to securely call and parse data from the external Weather API.
+The next task, **`feat/endpoints-weather-crud`**, will focus on creating the FastAPI routers and endpoints to expose the completed Service Layer logic to the client.
+

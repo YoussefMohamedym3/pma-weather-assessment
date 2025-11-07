@@ -17,9 +17,22 @@ class WeatherCreate(BaseModel):
 
 
 class WeatherUpdate(BaseModel):
-    """Schema for PUT /weather/{id}. Defines the input for updating a user note."""
+    """
+    Schema for PUT /weather/{id}. Defines optional fields for updating a search.
+    Updating location or dates will trigger a full API data refresh.
+    """
 
-    user_note: str
+    location_name: Optional[str] = None
+    search_date_from: Optional[date] = None
+    search_date_to: Optional[date] = None
+    user_note: Optional[str] = None
+
+    # Ensure at least one field is provided for an update
+    @classmethod
+    def model_validate(cls, data: Any, *args, **kwargs) -> "WeatherUpdate":
+        if isinstance(data, dict) and not any(data.values()):
+            raise ValueError("At least one field must be provided for update.")
+        return super().model_validate(data, *args, **kwargs)
 
 
 # --- 2. SCHEMAS FOR API OUTPUT (Read/Display Operations) ---
@@ -40,23 +53,20 @@ class WeatherDisplay(BaseModel):
     created_at: datetime
 
     # Key Metrics (Matching the SQLAlchemy model)
-    day1_avg_temp_c: float
-    day1_condition_summary: str
-    humidity_percent: int
-    wind_kph: float
+    summary_avg_temp_c: Optional[float] = None
+    summary_condition_text: Optional[str] = None
+    summary_avg_humidity: Optional[float] = None
+    summary_max_wind_kph: Optional[float] = None
 
     # External Data
     google_maps_url: Optional[str] = None
-    # Using List[str] with Optional=None is clear
     youtube_video_ids: Optional[List[str]] = None
 
     # User Note and Raw Data
     user_note: Optional[str] = None
-    # Raw data should ideally be a defined Pydantic model for validation,
-    # but Dict[str, Any] is acceptable for complex, external JSON data.
     raw_forecast_data: Dict[str, Any]
 
-    # Pydantic Configuration for ORM compatibility (Aliased as from_attributes=True since v2)
+    # Pydantic Configuration for ORM compatibility
     model_config = ConfigDict(from_attributes=True)
 
 
