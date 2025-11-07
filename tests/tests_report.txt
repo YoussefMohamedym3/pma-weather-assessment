@@ -1,0 +1,243 @@
+=== FOLDER TREE FOR: . ===
+Tree is ignoring: .env|__pycache__|.git|*_report.txt
+.
+├── api
+│   ├── __init__.py
+│   └── test_weather_endpoints.py
+├── __init__.py
+└── services
+    ├── __init__.py
+    └── test_weather_extraction.py
+
+3 directories, 5 files
+
+
+=======================
+
+
+=== FILE CONTENTS ===
+Find is ignoring: files named '.env, *_report.txt', dirs named '__pycache__, .git'
+
+
+--- Content of: ./api/__init__.py ---
+--- End of: ./api/__init__.py ---
+
+
+--- Content of: ./api/test_weather_endpoints.py ---
+# File: tests/api/test_weather_endpoints.py
+
+from datetime import date, datetime, timedelta
+from unittest.mock import MagicMock
+
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.main import app  # Import the main FastAPI application instance
+
+# Initialize the TestClient for synchronous testing of the asynchronous app
+client = TestClient(app)
+
+# --- Mock Data ---
+# This dictionary represents the data structure that the service layer *returns* # after a successful API call and DB save.
+MOCK_DB_RECORD = {
+    "id": 99,
+    "location_name": "London, UK",
+    "search_date_from": "2025-11-07",
+    "search_date_to": "2025-11-08",
+    "created_at": "2025-11-07T12:00:00Z",
+    "summary_avg_temp_c": 12.5,
+    "summary_condition_text": "Sunny",
+    "summary_avg_humidity": 65.0,
+    "summary_max_wind_kph": 30.0,
+    "user_note": None,
+    "google_maps_url": None,
+    "youtube_video_ids": None,
+    "raw_forecast_data": {"test_key": "mocked_data"},
+}
+
+
+@pytest.fixture(autouse=True)
+def mock_external_dependencies(mocker):
+    """
+    Fixture to mock the heavy dependencies (External API and Database CRUD)
+    to ensure tests are fast and isolated.
+    """
+    # 1. Mock the database interaction (CRUD)
+    mocker.patch(
+        "backend.app.services.weather_crud.create_db_record",
+        return_value=MOCK_DB_RECORD,
+    )
+    mocker.patch(
+        "backend.app.services.weather_crud.update_db_record",
+        return_value=MOCK_DB_RECORD,
+    )
+    mocker.patch(
+        "backend.app.services.weather_crud.get_search_by_id",
+        return_value=MOCK_DB_RECORD,
+    )
+    mocker.patch(
+        "backend.app.services.weather_crud.get_all_searches",
+        return_value=[MOCK_DB_RECORD],
+    )
+    mocker.patch(
+        "backend.app.services.weather_crud.delete_weather_search", return_value=None
+    )
+
+    # 2. Mock the external API caller and location validator to return success without network calls
+    mocker.patch(
+        "backend.app.services.external_apis.validate_location_exists",
+        return_value="London, UK",
+    )
+    mocker.patch(
+        "backend.app.services.external_apis.get_raw_weather_data_for_range",
+        return_value={"location": {"name": "London"}},
+    )
+
+
+def test_root_status_endpoint():
+    """Test the basic health check endpoint."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json()["status"] == "Online"
+
+
+def test_create_weather_search_success():
+    """Tests the POST /weather endpoint success path."""
+
+    create_input = {
+        "location_name": "london",
+        "search_date_from": date(2025, 11, 7).isoformat(),
+        "search_date_to": date(2025, 11, 8).isoformat(),
+    }
+
+    response = client.post("/weather/", json=create_input)
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["location_name"] == "London, UK"
+
+
+def test_read_all_weather_searches_success():
+    """Tests the GET /weather endpoint."""
+    response = client.get("/weather/")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id"] == 99
+
+
+def test_update_weather_search_success():
+    """Tests the PUT /weather/{id} endpoint for a simple update (which triggers refresh mock)."""
+
+    update_input = {
+        "user_note": "Test update successful.",
+        "location_name": "NewYork",
+        "search_date_from": date(2025, 12, 1).isoformat(),
+    }
+
+    response = client.put("/weather/99", json=update_input)
+
+    assert response.status_code == 200
+    data = response.json()
+    # The response should contain the mocked MOCK_DB_RECORD data
+    assert (
+        data["user_note"] == MOCK_DB_RECORD["user_note"]
+    )  # Should be original mocked user_note
+    assert (
+        data["location_name"] == "London, UK"
+    )  # Should be original mocked location_name
+
+
+def test_delete_weather_search_success():
+    """Tests the DELETE /weather/{id} endpoint."""
+    response = client.delete("/weather/99")
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Search record 99 deleted successfully."
+--- End of: ./api/test_weather_endpoints.py ---
+
+
+--- Content of: ./__init__.py ---
+--- End of: ./__init__.py ---
+
+
+--- Content of: ./services/__init__.py ---
+--- End of: ./services/__init__.py ---
+
+
+--- Content of: ./services/test_weather_extraction.py ---
+# File: tests/services/test_weather_extraction.py
+
+from datetime import date
+from typing import Any, Dict
+
+import pytest
+from fastapi import HTTPException
+
+from backend.app.services.weather_extraction import _extract_summary_data_for_db
+
+
+def test_extract_summary_data_calculation_success():
+    """Tests if summary data (avg temp, max wind) is calculated correctly across a range."""
+
+    # Mock raw data representing a successful API call for a 2-day range
+    mock_raw_data: Dict[str, Any] = {
+        "location": {"name": "TestLoc"},
+        "forecast": {
+            "forecastday": [
+                {
+                    "date": "2025-11-07",
+                    "day": {
+                        "avgtemp_c": 10.0,
+                        "avghumidity": 50,
+                        "maxwind_kph": 20.0,
+                        "condition": {"text": "Sunny"},
+                    },
+                },
+                {
+                    "date": "2025-11-08",
+                    "day": {
+                        "avgtemp_c": 30.0,
+                        "avghumidity": 60,
+                        "maxwind_kph": 50.0,
+                        "condition": {"text": "Rain"},
+                    },
+                },
+            ]
+        },
+    }
+
+    # 1. Call the function
+    summary = _extract_summary_data_for_db(mock_raw_data)
+
+    # 2. Assert results (Calculations for the 2-day range)
+
+    # Expected Avg Temp: (10.0 + 30.0) / 2 = 20.0
+    assert summary["summary_avg_temp_c"] == 20.0
+
+    # Expected Avg Humidity: (50 + 60) / 2 = 55.0
+    assert summary["summary_avg_humidity"] == 55.0
+
+    # Expected Max Wind: max(20.0, 50.0) = 50.0
+    assert summary["summary_max_wind_kph"] == 50.0
+
+    # Expected Condition: Takes the first day's condition
+    assert summary["summary_condition_text"] == "Sunny"
+
+    # Verify return type is Dict
+    assert isinstance(summary, dict)
+
+
+def test_extract_summary_data_empty_forecast_raises_error():
+    """Tests error handling for empty forecast data."""
+    mock_raw_data: Dict[str, Any] = {
+        "location": {"name": "TestLoc"},
+        "forecast": {"forecastday": []},
+    }
+
+    with pytest.raises(HTTPException) as excinfo:
+        _extract_summary_data_for_db(mock_raw_data)
+
+    assert excinfo.value.status_code == 404
+--- End of: ./services/test_weather_extraction.py ---

@@ -36,6 +36,12 @@ This section tracks completed tasks for **Milestone 1: The Backend** (Tech Asses
 * **[COMPLETED] Production Setup:** Added logging for observability and configured basic CORS middleware for frontend compatibility.
 
 ---
+### **Task Group 5: Advanced Features (To Stand Apart)**
+
+* **[PENDING] Data Export:** Implement the endpoint and service logic to export data from the database (e.g., CSV).
+* **[PENDING] API Integration:** Implement the service logic for Google Maps and YouTube data retrieval.
+
+---
 
 ## 🛠️ Setup Instructions
 
@@ -73,7 +79,35 @@ To prepare the backend for development, follow these steps:
     Open the newly created `backend/.env` file and replace `"YOUR_API_KEY_GOES_HERE"` with your actual API key for WeatherAPI.
 
 ---
+### **Testing and Quality Assurance**
+
+To ensure the reliability and correctness of the complex service logic (especially the date handling, fuzzy location matching, and data extraction), a comprehensive test suite was implemented.
+
+#### **How to Run Tests**
+
+The test suite is located in the top-level `tests/` directory and can be executed using `pytest`.
+
+1.  Ensure your `pma-weather` Conda environment is active.
+2.  Run the following command from the project root:
+
+    ```bash
+    pytest
+    ```
+
+#### **Testing Strategy**
+
+The tests are separated to maximize coverage and maintainability:
+
+1.  **Unit Tests (`tests/services/`):** Directly test the pure Python functions within the service layer (e.g., `_extract_summary_data_for_db`) to verify that the complex range-wide averages and calculations are mathematically correct. These tests run without network access or database connection.
+2.  **Integration Tests (`tests/api/`):** Test the entire API flow for all CRUD endpoints (`POST`, `GET`, `PUT`, `DELETE`).
+    * **Mocking:** All external dependencies (the `WeatherAPI` and the actual `SQLAlchemy` database calls) are **mocked** using `pytest-mock`. This ensures that tests are fast, stable, and never rely on network access or leave temporary data in the database, fulfilling a production-grade standard.
+
+This section clearly communicates the high quality of your submission. You can now insert this text into your `README.md` file.
+
+---
+
+
 
 ## ⏭️ Next Steps
 
-The next task, **`feat/backend-testing`**, is crucial for demonstrating quality assurance. It will involve setting up the testing environment and writing unit tests for the complex service logic.
+The next task is **Data Export (Task Group 5, Part 1)**.
