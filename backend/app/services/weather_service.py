@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 # --- Project-Specific Imports ---
 from ..db.models.weather import WeatherSearch
 from ..schemas.weather import WeatherCreate, WeatherUpdate
-from .external_apis import get_raw_weather_data_for_range, validate_location_exists
+from .external_apis import (
+    get_raw_weather_data_for_range,
+    get_youtube_videos,
+    validate_location_exists,
+)
 from .weather_crud import get_all_searches_unpaginated  # <-- ADD THIS IMPORT
 from .weather_crud import (
     create_db_record,
@@ -82,6 +86,19 @@ async def create_weather_search(db: Session, request: WeatherCreate) -> WeatherS
     )
     summary_data = _extract_summary_data_for_db(filtered_raw_data)
 
+    # 3.5. Fetch External API Data (Task 2.2)
+    youtube_video_ids = await get_youtube_videos(validated_location_name)
+
+    # --- Google Maps Workaround (No API Key Needed) ---
+    google_maps_url = None
+    location_data = raw_api_data.get("location")
+    if location_data:
+        lat = location_data.get("lat")
+        lon = location_data.get("lon")
+        if lat and lon:
+            google_maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+    # --- End Workaround ---
+
     # 4. Build and Save DB Object
     db_search = WeatherSearch(
         location_name=validated_location_name,
@@ -90,8 +107,8 @@ async def create_weather_search(db: Session, request: WeatherCreate) -> WeatherS
         **summary_data,
         raw_forecast_data=filtered_raw_data,
         user_note=None,
-        google_maps_url=None,
-        youtube_video_ids=None,
+        google_maps_url=google_maps_url,
+        youtube_video_ids=youtube_video_ids,
     )
 
     return create_db_record(db, db_search)
@@ -132,11 +149,26 @@ async def update_weather_search(
         )
         summary_data = _extract_summary_data_for_db(filtered_raw_data)
 
+        # 3.5. Fetch External API Data (Task 2.2)
+        youtube_video_ids = await get_youtube_videos(validated_location_name)
+
+        # --- Google Maps Workaround (No API Key Needed) ---
+        google_maps_url = None
+        location_data = raw_api_data.get("location")
+        if location_data:
+            lat = location_data.get("lat")
+            lon = location_data.get("lon")
+            if lat and lon:
+                google_maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+        # --- End Workaround ---
+
         # --- Update all data fields (non-user-note) ---
         db_search.location_name = validated_location_name
         db_search.search_date_from = new_date_from
         db_search.search_date_to = new_date_to
         db_search.raw_forecast_data = filtered_raw_data
+        db_search.google_maps_url = google_maps_url
+        db_search.youtube_video_ids = youtube_video_ids
 
         for key, value in summary_data.items():
             setattr(db_search, key, value)
