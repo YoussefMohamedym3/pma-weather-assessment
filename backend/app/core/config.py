@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     # Database Settings
     DATABASE_URL: str
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file="backend/.env", env_file_encoding="utf-8"
+    )
 
 
 @lru_cache
@@ -42,3 +44,6 @@ def get_settings() -> Settings:
         Settings: The application settings object.
     """
     return Settings()
+
+
+settings = get_settings()

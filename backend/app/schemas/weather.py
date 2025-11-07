@@ -30,7 +30,7 @@ class WeatherUpdate(BaseModel):
     # Ensure at least one field is provided for an update
     @classmethod
     def model_validate(cls, data: Any, *args, **kwargs) -> "WeatherUpdate":
-        if isinstance(data, dict) and not any(data.values()):
+        if isinstance(data, dict) and all(v is None for v in data.values()):
             raise ValueError("At least one field must be provided for update.")
         return super().model_validate(data, *args, **kwargs)
 

@@ -26,9 +26,14 @@ This section tracks completed tasks for **Milestone 1: The Backend** (Tech Asses
 
 * **[COMPLETED] External API Integration:** Implemented robust logic in `external_apis.py` to securely call the WeatherAPI, handle all HTTP/API errors, and **dynamically retrieve data** by correctly looping through the `history.json` endpoint for historical date ranges.
 * **[COMPLETED] Core Service Logic:** Implemented **all mandatory CRUD functions** (`create_weather_search`, `get_all_searches`, `update_weather_search`, `delete_weather_search`) in the Service Layer.
-    * **Advanced Validation:** Implemented strict date range checks and explicit **location validation (fuzzy match)** using the `/search.json` endpoint before fetching data.
     * **Complex Update Logic:** The `UPDATE` function is fully compliant, triggering a **full data refresh and re-validation** if a user attempts to modify the location or date range.
 * **[COMPLETED] Architectural Refinement:** Refactored the Service Layer into dedicated sub-modules (`weather_crud.py`, `weather_extraction.py`) to keep the main `weather_service.py` file thin and focused on orchestration, maintaining the highest standards of maintainability.
+
+### **Task Group 4: API Endpoints & Setup (`feat/endpoints-weather-crud`)**
+
+* **[COMPLETED] Implement CRUD Endpoints:** Created the FastAPI router (`endpoints/weather.py`) with asynchronous handlers for all CRUD operations.
+* **[COMPLETED] Asynchronous Upgrade:** Refactored the API call dependencies from synchronous (`requests`) to asynchronous (`httpx`), greatly improving server performance and concurrency.
+* **[COMPLETED] Production Setup:** Added logging for observability and configured basic CORS middleware for frontend compatibility.
 
 ---
 
@@ -71,5 +76,4 @@ To prepare the backend for development, follow these steps:
 
 ## ⏭️ Next Steps
 
-The next task, **`feat/endpoints-weather-crud`**, will focus on creating the FastAPI routers and endpoints to expose the completed Service Layer logic to the client.
-
+The next task, **`feat/backend-testing`**, is crucial for demonstrating quality assurance. It will involve setting up the testing environment and writing unit tests for the complex service logic.
