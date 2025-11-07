@@ -1,16 +1,20 @@
 """Orchestration layer: Flow control, high-level validation, and coordinating CRUD/API calls."""
 
+# --- Standard Library Imports ---
+import csv
+import io
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+# --- Third-Party Imports ---
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+# --- Project-Specific Imports ---
 from ..db.models.weather import WeatherSearch
-
-# --- Specialized Imports ---
 from ..schemas.weather import WeatherCreate, WeatherUpdate
 from .external_apis import get_raw_weather_data_for_range, validate_location_exists
+from .weather_crud import get_all_searches_unpaginated  # <-- ADD THIS IMPORT
 from .weather_crud import (
     create_db_record,
     delete_weather_search,
@@ -144,10 +148,68 @@ async def update_weather_search(
     return update_db_record(db, db_search)
 
 
-# --- Public READ/DELETE functions are imported directly from weather_crud ---
-# These functions (get_all_searches, delete_weather_search, get_search_by_id)
-# are public and exposed by weather_service.py, but their implementation
-# resides in weather_crud.py (the DB specialist).
+def _convert_search_to_dict(search: WeatherSearch) -> Dict[str, Any]:
+    """
+    Helper to convert the ORM model to a flat, serializable dict for export.
+    We explicitly omit the raw_forecast_data for CSV clarity.
+    """
+    return {
+        "id": search.id,
+        "location_name": search.location_name,
+        "search_date_from": search.search_date_from.isoformat(),
+        "search_date_to": search.search_date_to.isoformat(),
+        "summary_avg_temp_c": search.summary_avg_temp_c,
+        "summary_condition_text": search.summary_condition_text,
+        "summary_avg_humidity": search.summary_avg_humidity,
+        "summary_max_wind_kph": search.summary_max_wind_kph,
+        "user_note": search.user_note,
+        "google_maps_url": search.google_maps_url,
+        # Note: Omitting youtube_video_ids for CSV clarity
+        "created_at": search.created_at.isoformat(),
+    }
 
-# We must ensure they are properly exported/imported if needed by other modules,
-# but for the API endpoint, we will just import them directly from weather_service.py.
+
+async def export_searches(db: Session, format: str) -> Any:
+    """
+    Orchestrates the export of all search data in the specified format.
+    """
+
+    # 1. Get all data from the database
+    all_searches = get_all_searches_unpaginated(db)
+
+    if not all_searches:
+        if format == "json":
+            return []
+        else:  # csv
+            return ""  # Return an empty string for an empty CSV
+
+    # 2. Convert all ORM objects to plain dicts
+    data_as_dicts = [_convert_search_to_dict(search) for search in all_searches]
+
+    # 3. Handle JSON export
+    if format == "json":
+        # For JSON, we can include the raw data if needed, but for consistency
+        # with the CSV, we'll return the flattened dicts.
+        return data_as_dicts
+
+    # 4. Handle CSV export
+    if format == "csv":
+        # Use StringIO to create the CSV in memory
+        output = io.StringIO()
+
+        # Use the keys from the first dict as header
+        headers = data_as_dicts[0].keys()
+        writer = csv.DictWriter(output, fieldnames=headers)
+
+        writer.writeheader()
+        writer.writerows(data_as_dicts)
+
+        # Return the string value of the in-memory file
+        return output.getvalue()
+
+    # 5. This check is redundant if using Literal in the endpoint,
+    # but good for service-level defense.
+    raise HTTPException(
+        status_code=400,
+        detail=f"Invalid export format '{format}'. Supported formats: 'json', 'csv'.",
+    )
