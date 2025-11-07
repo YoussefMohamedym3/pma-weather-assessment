@@ -24,7 +24,7 @@ class WeatherSearch(Base):
         String,
         index=True,
         nullable=False,
-        comment="The user-provided name of the location.",
+        comment="The validated, official location name returned by the API.",
     )
     search_date_from = Column(
         Date, nullable=False, comment="The requested start date for the forecast range."
@@ -33,17 +33,20 @@ class WeatherSearch(Base):
         Date, nullable=False, comment="The requested end date for the forecast range."
     )
 
-    # --- Extracted Key Metrics (Summarizing Day 1 of the range for quick READs) ---
-    day1_avg_temp_c = Column(
-        Float, comment="Average temperature in Celsius for the first day."
+    # --- Extracted Key Metrics (Summarizing the *entire* range) ---
+    summary_avg_temp_c = Column(
+        Float, comment="Average temperature in Celsius for the entire date range."
     )
-    day1_condition_summary = Column(
+    summary_condition_text = Column(
         String,
-        comment="Textual summary of the main weather condition on the first day.",
+        comment="Textual summary of the main weather condition on the *first* day.",
     )
-    humidity_percent = Column(Integer, comment="Humidity percentage for the first day.")
-    wind_kph = Column(
-        Float, comment="Wind speed in kilometers per hour (kph) for the first day."
+    summary_avg_humidity = Column(
+        Float, comment="Average humidity percentage for the entire date range."
+    )
+    summary_max_wind_kph = Column(
+        Float,
+        comment="Maximum wind speed (kph) recorded across the entire date range.",
     )
 
     # --- External Data (Milestone 3: Stand-Apart API Data) ---
@@ -67,16 +70,13 @@ class WeatherSearch(Base):
     raw_forecast_data = Column(
         JSON,
         nullable=False,
-        comment="The complete, raw JSON response from the external weather API.",
+        comment="The complete, filtered JSON response from the external weather API.",
     )
 
     # --- Timestamp ---
-    # FIX: Using datetime.now(timezone.utc) is the modern, timezone-aware equivalent of utcnow()
     created_at = Column(
         DateTime,
-        default=lambda: datetime.now(
-            timezone.utc
-        ),  # Use lambda or a function reference
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True,
         comment="Timestamp (in UTC) when the record was created.",
