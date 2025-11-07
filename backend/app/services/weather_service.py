@@ -55,7 +55,7 @@ def _validate_date_range(date_from: date, date_to: date) -> None:
 # --- Orchestrator Functions (The Public API of the Service Layer) ---
 
 
-def create_weather_search(db: Session, request: WeatherCreate) -> WeatherSearch:
+async def create_weather_search(db: Session, request: WeatherCreate) -> WeatherSearch:
     """
     Orchestrates the creation of a new weather record: Validates, Fetches, Extracts, and Saves.
     """
@@ -63,10 +63,10 @@ def create_weather_search(db: Session, request: WeatherCreate) -> WeatherSearch:
     _validate_date_range(request.search_date_from, request.search_date_to)
 
     # 1. Location Validation/Fuzzy Match
-    validated_location_name = validate_location_exists(request.location_name)
+    validated_location_name = await validate_location_exists(request.location_name)
 
     # 2. Fetch Raw Data
-    raw_api_data = get_raw_weather_data_for_range(
+    raw_api_data = await get_raw_weather_data_for_range(
         location=validated_location_name,
         date_from=request.search_date_from,
         date_to=request.search_date_to,
@@ -93,7 +93,7 @@ def create_weather_search(db: Session, request: WeatherCreate) -> WeatherSearch:
     return create_db_record(db, db_search)
 
 
-def update_weather_search(
+async def update_weather_search(
     db: Session, search_id: int, update_data: WeatherUpdate
 ) -> WeatherSearch:
     """
@@ -117,8 +117,8 @@ def update_weather_search(
 
         # --- Re-run the full validation and fetch logic ---
         _validate_date_range(new_date_from, new_date_to)
-        validated_location_name = validate_location_exists(new_location)
-        raw_api_data = get_raw_weather_data_for_range(
+        validated_location_name = await validate_location_exists(new_location)
+        raw_api_data = await get_raw_weather_data_for_range(
             location=validated_location_name,
             date_from=new_date_from,
             date_to=new_date_to,

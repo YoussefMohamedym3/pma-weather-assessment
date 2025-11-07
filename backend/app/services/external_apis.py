@@ -1,16 +1,17 @@
-import copy
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 from fastapi import HTTPException
 
-from ..core.config import settings
+from backend.app.core.config import settings
 
 # --- Private Helper Function: Network Caller  ---
 
 
-def _fetch_from_weatherapi(endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
+async def _fetch_from_weatherapi(
+    endpoint: str, params: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Generic, private helper function to call the WeatherAPI.com endpoints.
     """
@@ -24,9 +25,10 @@ def _fetch_from_weatherapi(endpoint: str, params: Dict[str, Any]) -> Dict[str, A
     base_url = f"{settings.WEATHERAPI_BASE_URL}/{endpoint}"
 
     try:
-        response = requests.get(base_url, params=params)
-        response.raise_for_status()
-        data = response.json()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
 
         if "error" in data:
             error_msg = data["error"].get("message", "Unknown API error.")
@@ -44,13 +46,11 @@ def _fetch_from_weatherapi(endpoint: str, params: Dict[str, Any]) -> Dict[str, A
 
         return data
 
-    except requests.exceptions.HTTPError as e:
-        detail_msg = (
-            f"External weather service error: {e.response.reason} - {e.response.text}"
-        )
+    except httpx.HTTPStatusError as e:
+        detail_msg = f"External weather service error: {e.response.reason_phrase} - {e.response.text}"
         raise HTTPException(status_code=e.response.status_code, detail=detail_msg)
 
-    except requests.exceptions.RequestException as e:
+    except httpx.RequestException as e:
         raise HTTPException(
             status_code=503, detail=f"Failed to connect to weather service: {e}"
         )
@@ -59,7 +59,7 @@ def _fetch_from_weatherapi(endpoint: str, params: Dict[str, Any]) -> Dict[str, A
 # --- Public Function: Location Validation  ---
 
 
-def validate_location_exists(location: str) -> str:
+async def validate_location_exists(location: str) -> str:
     """
     Uses the /search.json endpoint to validate a location and handle fuzzy matching.
     Returns the official name of the top-matched location.
@@ -68,7 +68,7 @@ def validate_location_exists(location: str) -> str:
     params = {"q": location}
     try:
         # The search API returns a LIST of matches, not a single dict
-        data = _fetch_from_weatherapi("search.json", params)
+        data = await _fetch_from_weatherapi("search.json", params)
 
         if not isinstance(data, list) or not data:
             raise HTTPException(
@@ -92,7 +92,7 @@ def validate_location_exists(location: str) -> str:
 # --- Public Function: Data Retrieval Orchestrator ---
 
 
-def get_raw_weather_data_for_range(
+async def get_raw_weather_data_for_range(
     location: str, date_from: date, date_to: date
 ) -> Dict[str, Any]:
     """
@@ -105,7 +105,7 @@ def get_raw_weather_data_for_range(
     # We now use the validated location name passed to this function.
     if date_from >= today:
         params = {"q": location, "days": 14, "aqi": "yes", "alerts": "yes"}
-        raw_data = _fetch_from_weatherapi("forecast.json", params)
+        raw_data = await _fetch_from_weatherapi("forecast.json", params)
 
     # Check 2: HISTORICAL DATA (HARD PATH: requires looping)
     elif date_from < today:
@@ -122,7 +122,7 @@ def get_raw_weather_data_for_range(
 
         while current_date <= date_to:
             params = {"q": location, "dt": current_date.isoformat(), "aqi": "yes"}
-            day_data = _fetch_from_weatherapi("history.json", params)
+            day_data = await _fetch_from_weatherapi("history.json", params)
             last_day_data = day_data  # Save the last successful fetch
 
             forecast_day_list = day_data.get("forecast", {}).get("forecastday", [])
