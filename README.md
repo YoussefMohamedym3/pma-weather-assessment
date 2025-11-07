@@ -1,91 +1,81 @@
 # ☁️ PMA Weather Assessment (Full Stack)
 
-This repository contains a full-stack technical assessment submission, implementing a robust, decoupled API using **Python (FastAPI)** and a modern client using **React** (to be built in a later milestone).
+This repository contains a full-stack technical assessment submission, implementing:
+1.  A robust, decoupled API using **Python (FastAPI)**.
+2.  A responsive, single-page client using **React (Vite + TypeScript)**.
 
-The architecture is designed for scalability and maintainability, strictly adhering to principles of separation of concerns (API, Services, Models, Configuration).
-
----
-
-## ✅ Task Completion Log: Backend (Milestone 1)
-
-This log tracks the successful completion of all mandatory and highly recommended features for Tech Assessment #2.
-
-### **Group 1: Core Utilities & Foundation**
-
-* **[COMPLETED] Professional Architecture:** Implemented a multi-layer structure (`core/`, `db/`, `schemas/`, `services/`) for clarity and maintainability.
-* **[COMPLETED] Decoupled Configuration:** Uses `pydantic-settings` to load all settings securely from the `.env` file.
-* **[COMPLETED] Database Utility:** Configured SQLAlchemy engine and `get_db` dependency for file-based persistence (SQLite).
-
-### **Group 2: Data Contracts & Logic**
-
-* **[COMPLETED] Data Contracts (Models & Schemas):** Defined `WeatherSearch` model and necessary Pydantic schemas, including fields for date range input, range-wide summaries, and future API integrations (Google/YouTube).
-* **[COMPLETED] Advanced Service Logic:** Implemented highly complex logic to support:
-    * **Historical Ranges:** Dynamically loops through the `history.json` API endpoint for multi-day historical searches.
-    * **Fuzzy Match/Validation:** Uses the `/search.json` endpoint to validate and normalize user location input.
-    * **Range Summaries:** Calculates range-wide average temperature, humidity, and max wind speed for easy data retrieval.
-
-### **Group 3: CRUD & Production Readiness**
-
-* **[COMPLETED] CRUD Endpoints:** All mandatory CRUD functionality (`POST`, `GET`, `PUT`, `DELETE`) is exposed via asynchronous FastAPI routes (`endpoints/weather.py`).
-* **[COMPLETED] Complex UPDATE Logic:** The `PUT` endpoint is robust, automatically triggering a **full API data refresh and re-validation** if the user attempts to update the location or date range.
-* **[COMPLETED] Data Export (TA 2.3):** Implemented the `/weather/export/` endpoint and service logic to stream data as **JSON** or **CSV** files.
-* **[COMPLETED] Asynchronous & Observability:** Upgraded all external HTTP calls to non-blocking **`httpx`** and integrated structured logging for server-side error diagnostics.
-
-### **Group 4: Quality Assurance**
-
-* **[COMPLETED] Automated Testing:** Implemented a complete suite of **unit and integration tests** using `pytest` and `pytest-mock` to verify service logic and API flow without hitting external networks.
-
----
-### **Group 5: Advanced Features (To Stand Apart)**
-
-* **[COMPLETED] API Integration (TA 2.2):** Implemented YouTube Data API (v3) for video searches. Added a resilient Google Maps link fallback using latitude/longitude from the core weather response, bypassing billing requirements for the Geocoding API.
+The architecture is designed for scalability and maintainability, with a clean separation of concerns.
 
 ---
 
-## 🛠️ Setup Instructions (Backend)
+## 🚀 How to Run the Full-Stack Application
 
-To set up and run the fully functional backend:
+You will need two terminals.
 
-#### **A. Environment Setup**
+### Terminal 1: Run the Backend (API)
 
-1.  **Create and Activate Environment:**
-
+1.  **Environment Setup (First-time only):**
     ```bash
     conda create -n pma-weather python=3.10
     conda activate pma-weather
+    pip install -r backend/requirements.txt
     ```
 
-2.  **Install Dependencies:**
-    Navigate to the `backend/` directory and install the packages:
-
+2.  **Configuration (First-time only):**
     ```bash
-    cd backend
-    pip install -r requirements.txt
-    cd ..
-    ```
-
-#### **B. Configuration**
-
-1.  **Create `.env` File:**
-    ```bash
+    # Create the .env file
     cp backend/.env.example backend/.env
     ```
+    Now, open `backend/.env` and add your API keys.
 
-2.  **Configure API Keys:** Open `backend/.env` and configure your keys:
-    * `WEATHERAPI_API_KEY="YOUR_WEATHERAPI_KEY"`
-    * `GOOGLE_API_KEY="YOUR_GOOGLE_CLOUD_KEY_FOR_YOUTUBE"`
-
-#### **C. Run the Server**
-
-1.  Start the application from the project root:
-
+3.  **Run the Backend Server:**
     ```bash
+    # From the project root
     uvicorn backend.main:app --reload
     ```
-    *The interactive documentation will be available at `http://127.0.0.1:8000/docs`.*
+    *The backend will run at `http://127.0.0.1:8000`.*
+
+### Terminal 2: Run the Frontend (React App)
+
+1.  **Environment Setup (First-time only):**
+    ```bash
+    cd frontend
+    npm install
+    ```
+
+2.  **Run the Frontend Server:**
+    ```bash
+    # From the 'frontend' directory
+    npm run dev
+    ```
+    *The frontend will run at `http://localhost:5173` and automatically open in your browser.*
 
 ---
 
-## ⏭️ Next Steps
+## ✅ Task Completion Log
 
-The backend is feature-complete for the assessment. The next step is to build the **Frontend (Tech Assessment 1)**.
+### Backend (Tech Assessment #2)
+
+* **[COMPLETED] Foundation:** Professional architecture (`core/`, `db/`, `schemas/`, `services/`), SQLAlchemy setup, and Pydantic settings management.
+* **[COMPLETED] Advanced Logic:** Implemented fuzzy location matching (`/search.json`), historical date range looping (`/history.json`), and validation to prevent "mixed" date (past/future) requests.
+* **[COMPLETED] Full CRUD Endpoints:** All `POST`, `GET`, `PUT`, and `DELETE` endpoints are functional.
+* **[COMPLETED] Complex UPDATE:** The `PUT` endpoint robustly handles full data refreshes if location/dates are changed.
+* **[COMPLETED] API Integration (TA 2.2):** Backend service fetches Google Maps URLs and YouTube video IDs.
+* **[COMPLETED] Data Export (TA 2.3):** Backend provides `/export` endpoint for both **JSON** and **CSV** downloads.
+* **[COMPLETED] Quality:** All services are asynchronous (`httpx`) and the API is fully documented via OpenAPI.
+
+### Frontend (Tech Assessment #1)
+
+* **[COMPLETED] Location Input:** User can search by location name, zip, or GPS coordinates.
+* **[COMPLETED] Current Location:** "Get My Location" button uses browser Geolocation.
+* **[COMPLETED] 5-Day Forecast:** App correctly queries for a 5-day range and displays it in a horizontal grid.
+* **[COMPLETED] Weather Icons:** Icons are fetched from the API and displayed.
+* **[COMPLETED] Full CRUD Interface:**
+    * **Create:** Main search form with date pickers.
+    * **Read:** "Previous Searches" list loads on start. A "Details" modal shows full data.
+    * **Update:** "Edit" modal allows for a full update of location, dates, or notes.
+    * **Delete:** "Delete" button removes records.
+* **[COMPLETED] API/Export Links:** Frontend displays links for Google Maps, YouTube, and data export downloads.
+* **[COMPLETED] Error Handling:** All API errors (e.g., location not found, invalid dates) are caught and shown to the user.
+* **[COMPLETED] Responsive Design:** The app is fully responsive, using CSS media queries to stack elements and reformat the data table on mobile devices.
+* **[COMPLETED] Submission Info:** App includes the required developer name and PMA description footer.
