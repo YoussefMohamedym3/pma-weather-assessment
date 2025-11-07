@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     WEATHERAPI_API_KEY: str
     WEATHERAPI_BASE_URL: str
 
+    # Google API Settings (Task 2.2)
+    GOOGLE_API_KEY: str
+    YOUTUBE_API_BASE_URL: str
+
     # Database Settings
     DATABASE_URL: str
 

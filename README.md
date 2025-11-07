@@ -38,7 +38,7 @@ This log tracks the successful completion of all mandatory and highly recommende
 ---
 ### **Group 5: Advanced Features (To Stand Apart)**
 
-* **[PENDING] API Integration (TA 2.2):** Implement service logic for Google Maps and YouTube data retrieval.
+* **[COMPLETED] API Integration (TA 2.2):** Implemented YouTube Data API (v3) for video searches. Added a resilient Google Maps link fallback using latitude/longitude from the core weather response, bypassing billing requirements for the Geocoding API.
 
 ---
 
@@ -71,7 +71,9 @@ To set up and run the fully functional backend:
     cp backend/.env.example backend/.env
     ```
 
-2.  **Configure API Key:** Open `backend/.env` and replace `"YOUR_API_KEY_GOES_HERE"` with your actual WeatherAPI key.
+2.  **Configure API Keys:** Open `backend/.env` and configure your keys:
+    * `WEATHERAPI_API_KEY="YOUR_WEATHERAPI_KEY"`
+    * `GOOGLE_API_KEY="YOUR_GOOGLE_CLOUD_KEY_FOR_YOUTUBE"`
 
 #### **C. Run the Server**
 
@@ -86,4 +88,4 @@ To set up and run the fully functional backend:
 
 ## ⏭️ Next Steps
 
-The next task is **API Integration (Task Group 5)**.
+The backend is feature-complete for the assessment. The next step is to build the **Frontend (Tech Assessment 1)**.

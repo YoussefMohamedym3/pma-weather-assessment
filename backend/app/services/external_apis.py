@@ -66,6 +66,48 @@ async def _fetch_from_weatherapi(
         )
 
 
+# --- Private Helper Function: Google API Network Caller ---
+
+
+async def _fetch_from_google_api(
+    base_url: str, params: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """
+    Generic, private helper function to call Google Cloud Platform APIs.
+    This is designed to be resilient: it logs errors but returns None
+    instead of raising an HTTPException, as this data is non-critical.
+    """
+    if not settings.GOOGLE_API_KEY:
+        log.critical("Server configuration error: GOOGLE_API_KEY is missing.")
+        return None
+
+    params["key"] = settings.GOOGLE_API_KEY
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+        if "error" in data:
+            error_msg = data["error"].get("message", "Unknown Google API error.")
+            log.error(f"Google API Error: {error_msg}")
+            return None  # Gracefully fail
+
+        return data
+
+    except httpx.HTTPStatusError as e:
+        detail_msg = f"External Google service error: {e.response.reason_phrase} - {e.response.text}"
+        log.error(
+            f"HTTPError for endpoint: {base_url} with params: {params}. Detail: {detail_msg}",
+            exc_info=True,
+        )
+        return None  # Gracefully fail
+    except httpx.RequestException as e:
+        log.error(f"Network Request Failed for {base_url}. Error: {e}", exc_info=True)
+        return None  # Gracefully fail
+
+
 # --- Public Function: Location Validation  ---
 
 
@@ -164,3 +206,36 @@ async def get_raw_weather_data_for_range(
         )
 
     return raw_data
+
+
+# --- Public Functions: Task 2.2 (Stand-Apart API Integrations) ---
+async def get_youtube_videos(location_name: str) -> Optional[List[str]]:
+    """
+    Uses YouTube Data API (Search) to find 5 travel-related videos
+    for the location and returns their video IDs.
+    """
+    # Make the search query more relevant
+    query = f"{location_name} travel guide OR walking tour"
+    params = {
+        "part": "snippet",
+        "q": query,
+        "type": "video",
+        "maxResults": 5,
+    }
+    data = await _fetch_from_google_api(settings.YOUTUBE_API_BASE_URL, params)
+
+    if not data or not data.get("items"):
+        log.warning(f"YouTube Search found no results for: {query}")
+        return None
+
+    try:
+        video_ids = [
+            item["id"]["videoId"]
+            for item in data.get("items", [])
+            if item.get("id", {}).get("videoId")
+        ]
+        return video_ids if video_ids else None
+
+    except Exception as e:
+        log.error(f"Error parsing YouTube Search response: {e}", exc_info=True)
+        return None
