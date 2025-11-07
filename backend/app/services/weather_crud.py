@@ -54,3 +54,8 @@ def update_db_record(db: Session, db_search: WeatherSearch) -> WeatherSearch:
     db.commit()
     db.refresh(db_search)
     return db_search
+
+
+def get_all_searches_unpaginated(db: Session) -> List[WeatherSearch]:
+    """Retrieves *all* weather search records, unpaginated."""
+    return db.query(WeatherSearch).order_by(WeatherSearch.created_at.desc()).all()
