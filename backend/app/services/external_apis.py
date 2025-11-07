@@ -9,7 +9,7 @@ from backend.app.core.config import settings
 
 log = logging.getLogger(__name__)
 
-# --- Private Helper Function: Network Caller  ---
+# --- Private Helper Function: Network Caller ---
 
 
 async def _fetch_from_weatherapi(
@@ -108,7 +108,7 @@ async def _fetch_from_google_api(
         return None  # Gracefully fail
 
 
-# --- Public Function: Location Validation  ---
+# --- Public Function: Location Validation ---
 
 
 async def validate_location_exists(location: str) -> str:
@@ -141,69 +141,112 @@ async def validate_location_exists(location: str) -> str:
         raise e
 
 
-# --- Public Function: Data Retrieval Orchestrator ---
+# --- NEW: Private Data Fetching Helpers (Refactored Logic) ---
+
+
+async def _fetch_historical_range(
+    location: str, date_from: date, date_to: date
+) -> Dict[str, Any]:
+    """
+    Fetches and stitches data from history.json for a past-only date range.
+    """
+    min_history_date = date(2010, 1, 1)
+    if date_from < min_history_date:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Historical data is only available from {min_history_date.isoformat()}.",
+        )
+
+    historical_days = []
+    current_date = date_from
+    last_day_data = {}  # To store the response for location data
+
+    while current_date <= date_to:
+        params = {"q": location, "dt": current_date.isoformat(), "aqi": "yes"}
+        day_data = await _fetch_from_weatherapi("history.json", params)
+        last_day_data = day_data  # Save the last successful fetch
+
+        forecast_day_list = day_data.get("forecast", {}).get("forecastday", [])
+        if forecast_day_list:
+            historical_days.append(forecast_day_list[0])
+
+        current_date += timedelta(days=1)
+
+    if not last_day_data:
+        raise HTTPException(
+            status_code=404, detail="No historical data found for range."
+        )
+
+    # Stitch results into a consistent structure
+    return {
+        "location": last_day_data.get("location", {}),
+        "forecast": {"forecastday": historical_days},
+    }
+
+
+async def _fetch_forecast_range(location: str) -> Dict[str, Any]:
+    """
+    Fetches 14-day forecast data from forecast.json.
+    """
+    # The API's max 'days' is 14
+    params = {"q": location, "days": 14, "aqi": "yes", "alerts": "yes"}
+    return await _fetch_from_weatherapi("forecast.json", params)
+
+
+# --- Public Function: Data Retrieval Orchestrator (REWRITTEN) ---
 
 
 async def get_raw_weather_data_for_range(
     location: str, date_from: date, date_to: date
 ) -> Dict[str, Any]:
     """
-    Fetches raw weather data, handling multi-day historical requests
-    by looping over history.json calls.
+    Fetches raw weather data, handling historical, future, and mixed-date ranges.
     """
     today = datetime.now(timezone.utc).date()
+    yesterday = today - timedelta(days=1)
 
-    # Check 1: CURRENT/FUTURE FORECAST DATA (EASY PATH: single API call)
-    # We now use the validated location name passed to this function.
-    if date_from >= today:
-        params = {"q": location, "days": 14, "aqi": "yes", "alerts": "yes"}
-        raw_data = await _fetch_from_weatherapi("forecast.json", params)
+    raw_data = {}
+    historical_days = []
+    forecast_days = []
+    location_data = {}
 
-    # Check 2: HISTORICAL DATA (HARD PATH: requires looping)
-    elif date_from < today:
-        min_history_date = date(2010, 1, 1)
-        if date_from < min_history_date:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Historical data is only available from {min_history_date.isoformat()}.",
-            )
+    # --- 1. Fetch Historical Data (if the range includes the past) ---
+    if date_from <= yesterday:
+        # We need history. Fetch from date_from up to *either* date_to or yesterday,
+        # whichever comes first.
+        hist_end_date = min(date_to, yesterday)
 
-        historical_days = []
-        current_date = date_from
-        last_day_data = {}  # To store the response for location data
+        hist_data = await _fetch_historical_range(location, date_from, hist_end_date)
 
-        while current_date <= date_to:
-            params = {"q": location, "dt": current_date.isoformat(), "aqi": "yes"}
-            day_data = await _fetch_from_weatherapi("history.json", params)
-            last_day_data = day_data  # Save the last successful fetch
+        historical_days = hist_data.get("forecast", {}).get("forecastday", [])
+        if hist_data.get("location"):
+            location_data = hist_data["location"]
 
-            forecast_day_list = day_data.get("forecast", {}).get("forecastday", [])
-            if forecast_day_list:
-                historical_days.append(forecast_day_list[0])
+    # --- 2. Fetch Forecast Data (if the range includes today or the future) ---
+    if date_to >= today:
+        # We need a forecast. This single call fetches the next 14 days.
+        forecast_data = await _fetch_forecast_range(location)
 
-            current_date += timedelta(days=1)
+        forecast_days = forecast_data.get("forecast", {}).get("forecastday", [])
+        if forecast_data.get("location") and not location_data:
+            # Only set location from forecast if history didn't set it
+            location_data = forecast_data["location"]
 
-        if not last_day_data:
-            raise HTTPException(
-                status_code=404, detail="No historical data found for range."
-            )
+    # --- 3. Combine results ---
+    # The filter function in weather_service.py will pick the days it needs
+    # from this combined list.
+    all_forecast_days = historical_days + forecast_days
 
-        # Stitch results into a consistent structure
-        raw_data = {
-            "location": last_day_data.get("location", {}),
-            "forecast": {"forecastday": historical_days},
-        }
-
-    else:
+    if not all_forecast_days:
         raise HTTPException(
-            status_code=500, detail="Internal server error resolving date range type."
+            status_code=404,
+            detail="No weather data found for the specified range after processing.",
         )
 
-    if not raw_data:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to retrieve weather data for the specified range.",
-        )
+    raw_data = {
+        "location": location_data,
+        "forecast": {"forecastday": all_forecast_days},
+    }
 
     return raw_data
 
